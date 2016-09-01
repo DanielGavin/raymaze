@@ -30,10 +30,9 @@ typedef struct {
 	raycast_grid* grids;
 	raycast_texture** textures;
 	unsigned int texture_handle_count;
-	unsigned int grid_width;
-	unsigned int grid_height;
-	unsigned int world_width;
-	unsigned int world_height;
+	int grid_size;
+	int world_width;
+	int world_height;
 } raycast_world;
 
 typedef struct {
@@ -43,10 +42,15 @@ typedef struct {
 	double viewing_direction;
 } raycast_player;
 
+typedef struct {
+	raycast_grid* grid;
+	unsigned int ray_length;
+} raycast_cast_result;
+
 raycast_player raycast_create_player(int x, int y, int height, double viewing_direction);
 
-raycast_world raycast_create_world(unsigned int grid_width, unsigned int grid_height, unsigned int world_width,
-	unsigned int world_height, char* worldMap, unsigned int texture_handle_count);
+raycast_world raycast_create_world(int grid_size, int world_width,
+	int world_height, char* worldMap, unsigned int texture_handle_count);
 
 void raycast_delete_world(raycast_world* world);
 
