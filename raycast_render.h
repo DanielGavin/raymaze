@@ -2,20 +2,24 @@
 #define RAY_RENDER_H
 
 #define RAYCAST_WALL 0
-#define RAYCAST_EMPTY 0
+#define RAYCAST_EMPTY 1
 
 typedef struct {
 	unsigned char* data;
-	unsigned int width;
-	unsigned int height;
-	unsigned int components;
+	int width;
+	int height;
+	int components;
 } raycast_texture;
 
 typedef struct {
-	unsigned int screen_fov;
-	unsigned int screen_width;
-	unsigned int screen_height;
-	char* screen_buffer;
+	int screen_fov;
+	int screen_width;
+	int screen_height;
+	int center_x;
+	int center_y;
+	int projection_distance;
+	double ray_angle;
+	unsigned char* screen_buffer;
 } raycast_window;
 
 typedef struct {
@@ -29,7 +33,7 @@ typedef struct {
 typedef struct {
 	raycast_grid* grids;
 	raycast_texture** textures;
-	unsigned int texture_handle_count;
+	int texture_handle_count;
 	int grid_size;
 	int world_width;
 	int world_height;
@@ -38,26 +42,25 @@ typedef struct {
 typedef struct {
 	int x;
 	int y;
-	int height;
 	double viewing_direction;
 } raycast_player;
 
 typedef struct {
 	raycast_grid* grid;
-	unsigned int ray_length;
+	int ray_length;
 } raycast_cast_result;
 
-raycast_player raycast_create_player(int x, int y, int height, double viewing_direction);
+raycast_player raycast_create_player(int x, int y, double viewing_direction);
 
 raycast_world raycast_create_world(int grid_size, int world_width,
-	int world_height, char* worldMap, unsigned int texture_handle_count);
+	int world_height, char* worldMap, int texture_handle_count);
 
 void raycast_delete_world(raycast_world* world);
 
-raycast_window raycast_create_window(unsigned int screen_fov, unsigned int screen_width,
-	unsigned int screen_height, void* screen_buffer);
+raycast_window raycast_create_window(int screen_fov, int screen_width,
+									 int screen_height, void* screen_buffer);
 
-raycast_texture raycast_create_texture(unsigned int width, unsigned int height, unsigned char* data, unsigned texture_handle);
+raycast_texture raycast_create_texture(int width, int height, unsigned char* data, int texture_handle);
 
 void raycast_render_world(raycast_window* window, raycast_world* world, raycast_player* player);
 
