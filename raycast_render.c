@@ -4,19 +4,16 @@
 #include <math.h>
 #include <assert.h>
 
-#define PI 3.14159265
 
-double degree_tan(double x)
-{
-	return tan(x * PI / 180.0);
-}
-
-raycast_player raycast_create_player(int x, int y, double viewing_direction)
+raycast_player raycast_create_player(double x, double y, double view_x, double view_y, double plane_x, double plane_y)
 {
 	raycast_player player;
 	player.x = x;
 	player.y = y;
-	player.viewing_direction = viewing_direction;
+	player.view_x = view_x + 0.0000001;
+	player.view_y = view_y + 0.0000001;
+	player.plane_x = plane_x + 0.0000001;
+	player.plane_y = plane_y + 0.0000001;
 	return player;
 }
 
@@ -62,10 +59,6 @@ raycast_window raycast_create_window(int screen_fov, int screen_width, int scree
 	window.screen_width = screen_width;
 	window.screen_height = screen_height;
 	window.screen_buffer = screen_buffer;
-	window.center_x = screen_width / 2;
-	window.center_y = screen_height / 2;
-	window.ray_angle = (double)screen_fov / (double)screen_width;
-	window.projection_distance = (int)abs(((double)screen_width / 2.0) / degree_tan((double)screen_fov / 2.0));
 	return window;
 }
 
@@ -83,166 +76,132 @@ raycast_grid* raycast_index_grid(int x, int y, raycast_world* world)
 }
 
 
-double degree_clamp(double x)
-{
-	double deg = fmod(x, 360.0);
 
-	if (deg < 0) {
-		deg += 360.0;
-	}
-
-	return deg;
-}
 
 raycast_cast_result raycast_find_closest_grid(raycast_world* world, raycast_player* player, double raycast_direction)
 {
-	//Finding horizontal intersection
-	int x_vert, y_vert;
-	int x_hori, y_hori;
-	double distance_vert, distance_hori;
-	double y_slope, x_slope;
-	raycast_cast_result result;
-	result.grid = NULL;
-
-	//x_slope = abs((double)world->grid_size / degree_tan(raycast_direction));
-	x_slope = ((double)world->grid_size / degree_tan(raycast_direction));
-
-	if (180.0 > raycast_direction && raycast_direction > 0.0) {
-		y_hori = (int)floor((double)player->y / (double)world->grid_size) * world->grid_size - 1;
-		y_slope = -world->grid_size;
-	}
-
-	else {
-		y_hori = (int)floor((double)player->y / (double)world->grid_size) * world->grid_size + world->grid_size;
-		y_slope = world->grid_size;
-	}
-
-	/*
-	if (180.0 > raycast_direction && raycast_direction > 90.0) {
-		x_slope = -x_slope;
-	}
-	*/
-
-	x_hori = player->x + (player->y - y_hori) / degree_tan(raycast_direction);
-
-	raycast_grid* grid_hori = NULL;
-
-	printf("x_hori:%d y_hori: %d \n", x_hori, y_hori);
-
-	while (2200 > x_hori && x_hori >= 0 && 2200 > y_hori && y_hori >= 0) {
-
-		grid_hori = raycast_index_grid(x_hori / world->grid_size, y_hori / world->grid_size, world);
-
-		if (grid_hori && grid_hori->type == RAYCAST_WALL) {
-			break;
-		}
-
-		x_hori = x_hori + x_slope;
-		y_hori = y_hori + y_slope;
-	}
-
-	//finding vertical interestion
-	//y_slope = abs((double)world->grid_size * degree_tan(raycast_direction));
-	y_slope = ((double)world->grid_size * degree_tan(raycast_direction));
-
-	if (180.0 > raycast_direction && raycast_direction > 90.0) {
-		x_vert = (int)floor((double)player->x / (double)world->grid_size) * world->grid_size - 1;
-		x_slope = -world->grid_size;
-	}
-
-	else {
-		x_vert = (int)floor((double)player->x / (double)world->grid_size) * world->grid_size + world->grid_size;
-		x_slope = world->grid_size;
-	}
-
-	/*
-	if (180.0 > raycast_direction && raycast_direction > 0.0) {
-		y_slope = -y_slope;
-	}
-	*/
-
-	y_vert = (int)((double)player->y + (double)(player->x - x_vert) * degree_tan(raycast_direction));
-
-	raycast_grid* grid_vert = NULL;
-
-	printf("x_vert:%d y_vert: %d \n", x_vert, y_vert);
-
-	while (2200 > x_vert && x_vert >= 0 && 2200 > y_vert && y_vert >= 0) {
-
-		grid_vert = raycast_index_grid(x_vert / world->grid_size, y_vert / world->grid_size, world);
-
-		if (grid_vert && grid_vert->type == RAYCAST_WALL) {
-			break;
-		}
-
-		x_vert = x_vert + x_slope;
-		y_vert = y_vert + y_slope;
-	}
-
-
-	//calculate the distances of the closest intersections
-	double distorted = cos(degree_clamp(raycast_direction - player->viewing_direction) * PI / 180.0);
-
-	assert(distorted > 0.0);
-
-	distance_hori = sqrt((player->x - x_hori)*(player->x - x_hori) + (player->y - y_hori)*(player->y - y_hori));
-	distance_vert = sqrt((player->x - x_vert)*(player->x - x_vert) + (player->y - y_vert)*(player->y - y_vert));
-
-	if (grid_vert && grid_hori) {
-		if (distance_hori > distance_vert) {
-			result.grid = grid_vert;
-			result.ray_length = distance_vert;
-		}
-
-		else {
-			result.grid = grid_hori;
-			result.ray_length = distance_hori;
-		}
-	}
-
-	else if (grid_vert) {
-		result.grid = grid_vert;
-		result.ray_length = distance_vert;
-	}
-
-	else if(grid_hori) {
-		result.grid = grid_hori;
-		result.ray_length = distance_hori;
-	}
-
-	//compare between both intersections
-	return result;
+	
 }
 
 void raycast_render_world(raycast_window* window, raycast_world* world, raycast_player* player)
 {
-	double begin_ray = player->viewing_direction - ((double)window->screen_fov / 2.0);
-
 	for (int i = 0; i < window->screen_width; ++i) {
-		double ray_angle = begin_ray + window->ray_angle * (double)i;
-		raycast_cast_result result = raycast_find_closest_grid(world, player, floor(ray_angle));
+		//calculate ray position and direction
+		double camera_x = 2.0 * (double)i / (double)window->screen_width - 1.0; 
+		double ray_dir_x = player->view_x + player->plane_x * camera_x;
+		double ray_dir_y = player->view_y + player->plane_y * camera_x;
+		double ray_pos_x = player->x;
+		double ray_pos_y = player->y;
+		double side_x = 0;
+		double side_y = 0;
+		double delta_x = sqrt(1.0 + (ray_dir_y * ray_dir_y) / (ray_dir_x * ray_dir_x));
+		double delta_y = sqrt(1.0 + (ray_dir_x * ray_dir_x) / (ray_dir_y * ray_dir_y));
+		double perp_wall_dist = 0;
 
-		int projected_height = (int)(((double)world->grid_size / (double)result.ray_length) * (double)window->projection_distance);
+		int map_x = (int)ray_pos_x;
+		int map_y = (int)ray_pos_y;
+		int step_x = 0;
+		int step_y = 0;
 
-		if (projected_height > window->screen_height) {
-			projected_height = window->screen_height;
+		int hit = 0;
+		int side = 0; 
+
+		//calculate step and initial sideDisto
+
+		//ray goes left x wise
+		if (ray_dir_x < 0)
+		{
+			step_x = -1;
+			side_x = (ray_pos_x - map_x) * delta_x;
 		}
 
-		int start = (int)ceil(window->center_y - ((double)projected_height / 2.0));
+		//ray goes right x wise
+		else
+		{
+			step_x = 1;
+			side_x = (map_x + 1.0 - ray_pos_x) * delta_x;
+		}
 
+		//ray goes up y wise
+		if (ray_dir_y < 0)
+		{
+			step_y = -1;
+			side_y = (ray_pos_y - map_y) * delta_y;
+		}
 
-		if (result.grid && result.grid->type == RAYCAST_WALL) {
+		//ray goes down y wise
+		else
+		{
+			step_y = 1;
+			side_y = (map_y + 1.0 - ray_pos_y) * delta_y;
+		}
 
-			for (int j = start; j < start + projected_height; ++j) {
+		while (hit == 0)
+		{
+			//step to the next grid
+			if (side_x < side_y)
+			{
+				side_x += delta_x;
+				map_x += step_x;
+				side = 0;
+			}
+			else
+			{
+				side_y += delta_y;
+				map_y += step_y;
+				side = 1;
+			}
+
+			//see if we hit a wall
+
+			raycast_grid* grid = raycast_index_grid(map_x, map_y, world);
+
+			assert(grid);
+
+			if (grid && grid->type == RAYCAST_WALL) {
+				hit = 1;
+			}
+
+			//else if (!(2000 > map_x && map_x >= 0 && 2000 > map_y && map_y >= 0)) {
+			//	hit = 1;
+			//}
+		}
+
+		if (side == 0) {
+			perp_wall_dist = (map_x - ray_pos_x + (1.0 - step_x) / 2.0) / ray_dir_x;
+		}
+
+		else {
+			perp_wall_dist = (map_y - ray_pos_y + (1.0 - step_y) / 2.0) / ray_dir_y;
+		}
+
+		int projected_height = (int)(window->screen_height / perp_wall_dist);
+
+		int start = -projected_height / 2 + window->screen_height / 2;
+
+		if (start < 0) {
+			start = 0;
+		}
+
+		int end = projected_height / 2 + window->screen_height / 2;
+
+		if (end >= window->screen_height) {
+			end = window->screen_height - 1;
+		}
+
+		raycast_grid* grid = raycast_index_grid(map_x, map_y, world);
+
+		if (grid && grid->type == RAYCAST_WALL) {
+
+			for (int j = start; j < end; ++j) {
 				int pixel = (j*window->screen_width + i) * 4;
 				window->screen_buffer[pixel] = 255;
-				window->screen_buffer[pixel + 1] = result.grid->r;
-				window->screen_buffer[pixel + 2] = result.grid->g;
-				window->screen_buffer[pixel + 3] = result.grid->b;
+				window->screen_buffer[pixel + 1] = grid->r;
+				window->screen_buffer[pixel + 2] = grid->g;
+				window->screen_buffer[pixel + 3] = grid->b;
 			}
-			
+
 		}
 
 	}
-
 }
