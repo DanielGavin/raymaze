@@ -4,22 +4,61 @@
 
 #include "raycast_render.h"
 
-//map of the maze
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#define WORLD_WIDTH 8
+#define WORLD_HEIGHT 10
+#define PI 3.14159265
 
 
+//test map
+char maze_map[WORLD_WIDTH*WORLD_HEIGHT] = {'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',
+										   'w', 'e', 'w', 'e', 'e', 'e', 'e', 'w',
+										   'w', 'e', 'w', 'e', 'e', 'e', 'e', 'w',
+				                           'w', 'e', 'w', 'e', 'e', 'e', 'e', 'w',
+				                           'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
+		                                   'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
+		                                   'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
+			                               'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
+			                               'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w'};
 
-char maze_map[] = {'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',
-				   'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
-				   'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
-				   'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
-				   'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
-		           'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
-		           'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
-			       'w', 'e', 'e', 'e', 'e', 'e', 'e', 'w',
-			       'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w'};
+#define SCREEN_WIDTH 320
+#define SCREEN_HEIGHT 200
+
 
 int main(int argc, char *argv[])
 {
+
+	//test code
+	time_t t;
+	srand((unsigned)time(&t));
+
+
+	raycast_grid* grids = malloc(sizeof(raycast_grid)*WORLD_WIDTH*WORLD_HEIGHT);
+
+
+	for (int i = 0; i < WORLD_WIDTH*WORLD_HEIGHT; ++i) {
+
+		if (maze_map[i] == 'e') {
+			grids[i].type = RAYCAST_EMPTY;
+			grids[i].r = 0;
+			grids[i].g = 0;
+			grids[i].b = 0;
+		}
+
+		else if (maze_map[i] == 'w') {
+			grids[i].type = RAYCAST_WALL;
+			grids[i].r = rand() % 200;
+			grids[i].g = rand() % 200;
+			grids[i].b = rand() % 200;
+			grids[i].texture_handle = 0;
+		}
+
+	}
+
+
+
 	if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
 	{
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
@@ -27,7 +66,7 @@ int main(int argc, char *argv[])
 
 	SDL_Window* sdlWindow;
 	SDL_Renderer *sdlRenderer;
-	SDL_CreateWindowAndRenderer(900, 600, SDL_RENDERER_ACCELERATED, &sdlWindow, &sdlRenderer);
+	SDL_CreateWindowAndRenderer(1600, 900, SDL_RENDERER_ACCELERATED, &sdlWindow, &sdlRenderer);
 
 
 	if (!sdlWindow || !sdlRenderer) {
@@ -39,26 +78,30 @@ int main(int argc, char *argv[])
 	SDL_RenderClear(sdlRenderer);
 	SDL_RenderPresent(sdlRenderer);
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-	SDL_RenderSetLogicalSize(sdlRenderer, 320, 200);
+	SDL_RenderSetLogicalSize(sdlRenderer, SCREEN_WIDTH, SCREEN_HEIGHT);
 
 
-	SDL_Texture* sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 320, 200);
+	SDL_Texture* sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 320, 200);
 
 	int exit = 0;
 
-	unsigned char* buffer = malloc(320 * 200 * 4);
+	unsigned char* buffer = malloc(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
 
-	raycast_window window = raycast_create_window(60, 320, 200, buffer);
+	raycast_window window = raycast_create_window(SCREEN_WIDTH, SCREEN_HEIGHT, buffer);
 	raycast_player player = raycast_create_player(5, 5, -1, 0, 0, 0.66);
-	raycast_world world = raycast_create_world(64, 8, 9, maze_map, 1);
+	raycast_world world = raycast_create_world(8, 9, grids);
+
+	int width, height, components;
+	unsigned char* image_data = stbi_load("paint1.png", &width, &height, &components, 0);
+
+	raycast_create_texture(width, height, image_data, 0, &world);
 
 	while (!exit) {
 
 		raycast_grid* currentPos = raycast_index_grid(player.x, player.y, &world);
-		raycast_grid* forward = raycast_index_grid(player.x, player.y-1, &world);
-		raycast_grid* left = raycast_index_grid(player.x-1, player.y, &world);
-		raycast_grid* right = raycast_index_grid(player.x+1, player.y, &world);
-		raycast_grid* back = raycast_index_grid(player.x, player.y + 1, &world);
+
+
+		
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
@@ -73,24 +116,39 @@ int main(int argc, char *argv[])
 			case SDL_KEYDOWN:
 				switch (e.key.keysym.sym) {
 				case SDLK_LEFT:
-					if (left && left->type != RAYCAST_WALL) {
-						player.x -= 1;
-					}
+					{
+					double old_view_x = player.view_x;
+					double old_plane_x = player.plane_x;
+					player.view_x = player.view_x * cos(30 * PI / 180.0) - player.view_y * sin(30 * PI / 180.0);
+					player.view_y = player.view_y * cos(30 * PI / 180.0) + old_view_x * sin(30 * PI / 180.0);
+					player.plane_x = player.plane_x * cos(30 * PI / 180.0) - player.plane_y * sin(30 * PI / 180.0);
+					player.plane_y = player.plane_y * cos(30 * PI / 180.0) + old_plane_x * sin(30 * PI / 180.0);
 					break;
+					}
 				case SDLK_RIGHT:
-					if (right && right->type != RAYCAST_WALL) {
-						player.x += 1;
-					}
+					{
+					double old_view_x = player.view_x;
+					double old_plane_x = player.plane_x;
+					player.view_x = player.view_x * cos(-30 * PI / 180.0) - player.view_y * sin(-30 * PI / 180.0);
+					player.view_y = player.view_y * cos(-30 * PI / 180.0) + old_view_x * sin(-30 * PI / 180.0);
+					player.plane_x = player.plane_x * cos(-30 * PI / 180.0) - player.plane_y * sin(-30 * PI / 180.0);
+					player.plane_y = player.plane_y * cos(-30 * PI / 180.0) + old_plane_x * sin(-30 * PI / 180.0);
 					break;
+					}
 				case SDLK_UP:
+					{
+					double new_x = player.x + player.view_x;
+					double new_y = player.y + player.view_y;
+
+					raycast_grid* forward = raycast_index_grid(floor(new_x), floor(new_y), &world);
+
 					if (forward && forward->type != RAYCAST_WALL) {
-						player.y -= 1;
+						player.x += player.view_x;
+						player.y += player.view_y;
 					}
 					break;
-				case SDLK_DOWN:
-					if (back && back->type != RAYCAST_WALL) {
-						player.y += 1;
 					}
+				case SDLK_DOWN:
 					break;
 				case SDLK_ESCAPE:
 					exit = 1;
@@ -101,11 +159,11 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		memset(buffer, 255, 320 * 200 * 4);
+		memset(buffer, 255, SCREEN_WIDTH * SCREEN_HEIGHT * 4);
 
 		raycast_render_world(&window, &world, &player);
 
-		SDL_UpdateTexture(sdlTexture, NULL, buffer, 320 * 4);
+		SDL_UpdateTexture(sdlTexture, NULL, buffer, SCREEN_WIDTH * 4);
 
 		SDL_RenderClear(sdlRenderer);
 		SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);

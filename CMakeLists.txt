@@ -33,6 +33,10 @@ MACRO(SOURCE_GROUP_BY_FOLDER target)
   ENDIF (files)
 ENDMACRO(SOURCE_GROUP_BY_FOLDER)
 
+FIND_PACKAGE( SDL REQUIRED)
 
+set(RAYMAZE_LIB_INCLUDE_DIR ${SDL_INCLUDE_DIR})
+
+include_directories(${RAYMAZE_LIB_INCLUDE_DIR})
 add_executable(raymaze raymaze.c raycast_render.h raycast_render.c)
-
+target_link_libraries(raymaze ${SDL_LIBRARY} ${SDLMAIN_LIBRARY})
